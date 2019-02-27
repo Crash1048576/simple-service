@@ -1,0 +1,73 @@
+buildscript {
+    ext {
+        springBootVersion = '2.0.5.RELEASE'
+    }
+    repositories {
+        mavenCentral()
+        jcenter()
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+        classpath "com.bmuschko:gradle-docker-plugin:3.2.8"                     // docker plugin
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'com.bmuschko.docker-java-application'
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+repositories {
+    jcenter()
+}
+
+ext {
+    springCloudVersion = 'Finchley.SR1'
+}
+
+dependencies {
+    implementation('org.springframework.boot:spring-boot-starter-web')
+    implementation('org.springframework.cloud:spring-cloud-starter-openfeign')
+    testImplementation('org.springframework.boot:spring-boot-starter-test')
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
+import com.bmuschko.gradle.docker.tasks.image.Dockerfile
+
+def appName = "simple-service"
+
+bootJar {
+    baseName = appName
+    version = ''
+}
+
+// create dockerfile and copy all files from buildDir/libs/ into docker/ to provide docker build operation with all needed files
+task createDockerfile(type: Dockerfile) {
+    dependsOn build
+    doLast {
+        def fromDir = "$buildDir/libs/"
+        def destinationDir = "$buildDir/docker/"
+        println "coping files from $fromDir into $destinationDir"
+        copy({
+            from fromDir
+            into destinationDir
+        })
+    }
+
+    from "anapsix/alpine-java:8"
+    addFile("simple-service.jar", "/app/simple-service.jar")
+    defaultCommand("java", "-jar", "app/simple-service.jar")
+}
+//docker build -t dmitriisultanov/simple-ui:1.0 .
+//docker push dmitriisultanov/simple-ui:1.0
